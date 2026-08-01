@@ -14,7 +14,7 @@ export default function Home() {
             <div style={{ textAlign: "center" }}>
                 <h1>🛡 Sentinel AI</h1>
                 <p>Digital Evidence Verification Platform</p>
-                <p>MCP Server Connected ✅</p>
+                <p>MCP Connected ✅</p>
             </div>
         </main>
     );
