@@ -156,49 +156,83 @@ export class DigitalEvidenceTools {
       evidenceType: input.evidenceType
     });
 
-    const calculatedHash =
-      input.hash ||
-      `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`;
-    const expectedHash = input.expectedHash || calculatedHash;
-    const isHashMatched = calculatedHash.toLowerCase() === expectedHash.toLowerCase();
+    const hasHash = Boolean(input.hash && input.hash.trim());
+    const hasExpectedHash = Boolean(input.expectedHash && input.expectedHash.trim());
+    const hasSignature = Boolean(input.signature && input.signature.trim());
 
-    const isSignatureValid = input.signature
-      ? !input.signature.includes('invalid')
-      : true;
+    const isHashMatched =
+      hasHash && hasExpectedHash
+        ? input.hash!.trim().toLowerCase() === input.expectedHash!.trim().toLowerCase()
+        : null;
 
-    let status: 'VERIFIED' | 'CORRUPTED_HASH_MISMATCH' | 'SIGNATURE_INVALID' =
-      'VERIFIED';
-    if (!isHashMatched) {
-      status = 'CORRUPTED_HASH_MISMATCH';
-    } else if (!isSignatureValid) {
-      status = 'SIGNATURE_INVALID';
+    const isSignatureValid = hasSignature
+      ? !input.signature!.toLowerCase().includes('invalid') &&
+        !input.signature!.toLowerCase().includes('corrupt')
+      : null;
+
+    let status: 'VERIFIED' | 'FAILED' | 'INSUFFICIENT_DATA';
+    let details: string;
+
+    if (hasHash && hasExpectedHash) {
+      if (!isHashMatched) {
+        status = 'FAILED';
+        details = 'Hash mismatch between computed hash and expected reference hash.';
+      } else if (hasSignature && !isSignatureValid) {
+        status = 'FAILED';
+        details = 'Hash matched but provided digital signature is invalid.';
+      } else {
+        status = 'VERIFIED';
+        details = 'Cryptographic hash matches expected reference hash.';
+      }
+    } else if (hasSignature && !isSignatureValid) {
+      status = 'FAILED';
+      details = 'Provided digital signature is invalid.';
+    } else {
+      status = 'INSUFFICIENT_DATA';
+      if (!hasExpectedHash && !hasHash) {
+        details = 'Neither hash nor expected reference hash was provided for verification.';
+      } else if (!hasExpectedHash) {
+        details = 'Expected reference hash was not provided; cannot verify hash integrity.';
+      } else {
+        details = 'Computed hash was not provided; cannot compare against expected reference hash.';
+      }
     }
+
+    const integrityVerified = status === 'VERIFIED';
 
     return {
       evidenceId: input.evidenceId,
       evidenceType: input.evidenceType,
       status,
-      integrityVerified: status === 'VERIFIED',
+      integrityVerified,
+      details,
       hashDetails: {
-        algorithm: 'SHA-256',
-        computedHash: calculatedHash,
-        expectedHash: expectedHash,
-        match: isHashMatched
+        computedHash: input.hash ?? null,
+        expectedHash: input.expectedHash ?? null,
+        match: isHashMatched,
+        status:
+          isHashMatched === true
+            ? 'MATCHED'
+            : isHashMatched === false
+            ? 'MISMATCH'
+            : 'INSUFFICIENT_DATA'
       },
       signatureDetails: {
-        present: Boolean(input.signature),
-        valid: isSignatureValid,
-        algorithm: 'RSA-PSS-SHA256'
+        present: hasSignature,
+        status: hasSignature
+          ? isSignatureValid
+            ? 'VALID'
+            : 'INVALID'
+          : 'NOT_PROVIDED',
+        valid: hasSignature ? isSignatureValid : false
       },
       timestampAudit: {
-        providedTimestamp: input.timestamp || new Date().toISOString(),
-        verifiedAt: new Date().toISOString(),
-        timeSyncStatus: 'SYNCHRONIZED_NTP'
+        providedTimestamp: input.timestamp ?? null,
+        verifiedAt: new Date().toISOString()
       },
       chainOfCustody: {
-        logEntries: 4,
-        unbrokenChain: true,
-        lastCustodian: 'Sentinel AI Vault Node'
+        provided: false,
+        message: 'No chain of custody record supplied in input'
       }
     };
   }
@@ -221,68 +255,108 @@ export class DigitalEvidenceTools {
       evidenceId: input.evidenceId
     });
 
-    const isImageOrVideo =
-      !input.fileType ||
-      input.fileType.includes('image') ||
-      input.fileType.includes('video') ||
-      input.fileType.includes('JPEG') ||
-      input.fileType.includes('MP4');
+    const fileUrl = input.fileUrl?.trim() ?? null;
+    const fileType = input.fileType?.trim() ?? null;
+    const deepScanRequested = input.deepScan ?? true;
+
+    // Infer file extension if fileUrl or fileType is supplied
+    let extension: string | null = null;
+    if (fileUrl) {
+      const match = fileUrl.match(/\.([a-zA-Z0-9]+)(?:[\?#]|$)/);
+      if (match) {
+        extension = match[1].toLowerCase();
+      }
+    } else if (fileType && fileType.includes('/')) {
+      extension = fileType.split('/')[1].toLowerCase();
+    }
+
+    const hasFileSource = Boolean(fileUrl);
+    const extractionStatus = hasFileSource
+      ? 'INPUT_METADATA_DERIVED'
+      : 'LIMITED_INPUT_ONLY';
+
+    const warnings: string[] = [];
+    if (!fileUrl) {
+      warnings.push(
+        'No fileUrl or file path supplied; metadata extraction is restricted to input parameters.'
+      );
+    }
+    warnings.push(
+      'Binary file header parsing, EXIF metadata, camera hardware specs, GPS coordinates, and hash computation require direct file-level byte stream access.'
+    );
 
     return {
       evidenceId: input.evidenceId,
-      fileInfo: {
-        mimeType: input.fileType || 'image/jpeg',
-        fileSizeBytes: 4852910,
-        formattedSize: '4.63 MB',
-        deepScanPerformed: input.deepScan
+      suppliedFileInfo: {
+        fileUrl,
+        hasFilePath: hasFileSource,
+        extension
       },
-      deviceHardware: isImageOrVideo
-        ? {
-            make: 'Sony',
-            model: 'ILCE-7RM4',
-            serialNumber: 'S01-4491028-E',
-            lensModel: 'FE 24-70mm F2.8 GM',
-            firmwareVersion: 'v3.20'
-          }
-        : {
-            systemOS: 'Linux 6.1.0-18-amd64',
-            captureDaemon: 'Sentinel-Collector-v1.4'
-          },
-      captureParameters: isImageOrVideo
-        ? {
-            iso: 400,
-            shutterSpeed: '1/1000s',
-            aperture: 'f/2.8',
-            focalLength: '50mm',
-            colorSpace: 'sRGB',
-            whiteBalance: 'AUTO'
-          }
-        : {
-            encoding: 'UTF-8',
-            compression: 'NONE'
-          },
-      spatialGeolocation: {
-        latitude: 37.774929,
-        longitude: -122.419416,
-        altitudeMeters: 24.5,
-        gpsTimestamp: '2026-07-31T20:15:00Z',
-        locationName: 'San Francisco, CA, USA'
+      fileTypeInfo: {
+        suppliedFileType: fileType,
+        inferredCategory: extension
+          ? ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'].includes(extension)
+            ? 'IMAGE'
+            : ['mp4', 'avi', 'mov', 'mkv', 'webm'].includes(extension)
+            ? 'VIDEO'
+            : ['mp3', 'wav', 'flac', 'aac'].includes(extension)
+            ? 'AUDIO'
+            : ['pdf', 'doc', 'docx', 'txt'].includes(extension)
+            ? 'DOCUMENT'
+            : 'BINARY_DATA'
+          : fileType
+          ? fileType.toUpperCase()
+          : 'UNKNOWN'
       },
-      temporalData: {
-        creationTimestamp: '2026-07-31T20:15:00Z',
-        modificationTimestamp: '2026-07-31T20:15:00Z',
-        digitizedTimestamp: '2026-07-31T20:15:00Z',
-        timeDiscrepancyDetected: false
+      extractionStatus,
+      availableMetadata: {
+        evidenceId: input.evidenceId,
+        fileUrl,
+        fileType,
+        extension,
+        deepScanRequested
       },
-      softwareSignature: {
-        creatorTool: 'Sony Camera Firmware v3.20',
-        editingSoftwareDetected: null,
-        metadataAlteredTag: false
+      unavailableMetadata: {
+        fileSizeBytes: null,
+        formattedSize: 'NOT_AVAILABLE (Requires file-level extraction)',
+        deviceHardware: {
+          make: 'UNKNOWN (Requires file-level EXIF header extraction)',
+          model: 'UNKNOWN (Requires file-level EXIF header extraction)',
+          serialNumber: null,
+          firmwareVersion: null
+        },
+        captureParameters: {
+          iso: null,
+          shutterSpeed: null,
+          aperture: null,
+          focalLength: null
+        },
+        spatialGeolocation: {
+          latitude: null,
+          longitude: null,
+          locationName: 'NOT_AVAILABLE (Requires file-level GPS extraction)'
+        },
+        temporalData: {
+          creationTimestamp: null,
+          modificationTimestamp: null,
+          digitizedTimestamp: null
+        },
+        softwareSignature: {
+          creatorTool: null,
+          editingSoftwareDetected: null
+        },
+        hashes: {
+          sha256: null,
+          md5: null,
+          note: 'Hashes require direct file byte streams. Pass computed hash into verifyEvidence.'
+        }
       },
-      hashes: {
-        sha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
-        md5: '5d41402abc4b2a76b9719d911017c592'
-      }
+      warnings,
+      recommendedNextAnalysis: [
+        'Run verifyEvidence with known hash and expectedHash to confirm file integrity.',
+        'Upload raw evidence file to run byte-level EXIF and header parsing.',
+        'Execute detectManipulation to analyze evidence for deepfake or structural anomalies.'
+      ]
     };
   }
 
