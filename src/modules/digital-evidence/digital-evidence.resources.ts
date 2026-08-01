@@ -35,21 +35,24 @@ export class DigitalEvidenceResources {
             caseId: 'CASE-7712',
             type: 'IMAGE',
             status: 'VERIFIED',
-            trustScore: 98.5
+            trustScore: 98.5,
+            admissibilitySupportAssessment: 'STRONG_SUPPORT'
           },
           {
             evidenceId: 'EVD-2026-8802',
             caseId: 'CASE-7712',
             type: 'VIDEO',
             status: 'ANALYZING',
-            trustScore: 84.0
+            trustScore: 84.0,
+            admissibilitySupportAssessment: 'STRONG_SUPPORT'
           },
           {
             evidenceId: 'EVD-2026-8803',
             caseId: 'CASE-9041',
             type: 'AUDIO',
             status: 'FLAGGED',
-            trustScore: 42.0
+            trustScore: 42.0,
+            admissibilitySupportAssessment: 'NEEDS_EXPERT_REVIEW'
           }
         ]
       }
@@ -57,13 +60,13 @@ export class DigitalEvidenceResources {
   }
 
   /**
-   * Forensic standards reference guidelines (NIST SP 800-86 & ISO/IEC 27037).
+   * Forensic standards reference guidelines.
    */
   @Resource({
     uri: 'evidence://standards/nist-iso',
     name: 'Digital Forensic Standards Reference',
     description:
-      'NIST SP 800-86 and ISO/IEC 27037 guidelines for digital evidence handling and court admissibility',
+      'Reference guidelines for digital evidence handling and admissibility-support assessment',
     mimeType: 'application/json'
   })
   async getForensicStandards(uri: string, context: ExecutionContext) {
@@ -86,14 +89,15 @@ export class DigitalEvidenceResources {
           {
             code: 'FRE Rule 902(11/14)',
             title:
-              'Federal Rules of Evidence - Self-Authenticating Electronic Records'
+              'Federal Rules of Evidence - Self-Authenticating Electronic Records Reference'
           }
         ],
         corePrinciples: [
           'Chain of Custody continuity and non-repudiation',
           'Cryptographic hashing at immediate acquisition point',
           'Non-destructive bitstream forensic copies',
-          'Auditable and reproducible verification trails'
+          'Auditable and reproducible verification trails',
+          'Forensic decision-support analysis without absolute automated legal guarantees'
         ]
       }
     };
@@ -135,7 +139,7 @@ export class DigitalEvidenceResources {
             }
           }
         },
-        required: ['evidenceId', 'hash', 'fileSize']
+        required: ['evidenceId']
       }
     };
   }

@@ -48,28 +48,29 @@ export class DigitalEvidencePrompts {
       {
         role: 'system',
         content:
-          'You are Sentinel AI Forensic Assistant, an expert in digital forensics, ISO 27037 standards, and evidence chain of custody verification.'
+          'You are Sentinel AI Forensic Assistant, an expert in digital evidence triage, forensic decision-support, and chain of custody verification.'
       },
       {
         role: 'user',
         content: `Please guide the forensic triage for Evidence Item ID: ${evidenceId} (Type: ${evidenceType}).
 Perform the following steps:
-1. Verify the cryptographic hash (SHA-256) against the intake log.
-2. Extract all embedded EXIF headers and metadata attributes.
-3. Check for signs of temporal or spatial modification.
-4. Provide a preliminary risk classification and recommended next actions.`
+1. Verify the cryptographic hash (SHA-256) against the intake log using verifyEvidence.
+2. Extract all embedded EXIF headers and metadata attributes using extractMetadata.
+3. Check for signs of temporal or spatial modification using detectManipulation.
+4. Calculate explainable trust score using calculateTrustScore.
+5. Generate forensic decision-support report using generateForensicReport.`
       }
     ];
   }
 
   /**
-   * Prompt to evaluate evidence compliance with legal evidence rules (FRE 901/902).
+   * Prompt to guide admissibility-support assessment review for digital evidence.
    */
   @Prompt({
     name: 'court-admissibility-review',
-    title: 'Court Admissibility Assessment',
+    title: 'Admissibility-Support Assessment Review',
     description:
-      'Evaluates digital evidence integrity against legal admissibility standards (FRE 901/902)',
+      'Evaluates digital evidence integrity for forensic decision-support and admissibility-support assessment',
     arguments: [
       {
         name: 'evidenceId',
@@ -96,16 +97,16 @@ Perform the following steps:
       {
         role: 'system',
         content:
-          'You are a Senior Digital Forensics Legal Consultant specializing in electronic evidence admissibility under Federal Rules of Evidence (FRE 902(11), FRE 902(14)) and international standards.'
+          'You are a Senior Digital Forensics Consultant specializing in electronic evidence analysis and admissibility-support assessment.'
       },
       {
         role: 'user',
-        content: `Conduct an admissibility analysis for Evidence ID ${evidenceId} under ${jurisdiction} jurisdiction rules.
+        content: `Conduct an admissibility-support assessment for Evidence ID ${evidenceId} under ${jurisdiction} jurisdiction rules.
 Evaluate:
-1. Self-authentication capability via digital hash certificates.
+1. Self-authentication capabilities via digital hash certificates.
 2. Chain of custody continuity and audit log integrity.
-3. Defense challenge vulnerability (e.g., potential deepfake or metadata alteration arguments).
-4. Expert witness foundation requirements.`
+3. Potential challenge vulnerabilities (e.g., deepfake or metadata alteration arguments).
+4. Foundation requirements for forensic decision-support.`
       }
     ];
   }
